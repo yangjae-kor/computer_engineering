@@ -1,0 +1,50 @@
+module vending_game(
+    input wire clk,
+    input wire nrst,
+    input wire game_enable,
+    output reg [9:0] LED);
+    
+parameter S0=2'd0, S1=2'd1, S2=2'd2;
+
+reg [1:0] state;
+reg [4:0] count;
+reg [9:0] LED_s;
+
+always @(posedge clk or negedge nrst) begin
+    if(!nrst) state <= S0;
+    else begin
+    case(state)
+        S0: state <= game_enable ? S1 : S0;
+        S1: state <= (count!=20) ? S2 : S1;
+        S2: state <= (count!=6) ? S0: S2;
+        default: state <= state;
+    endcase
+  end
+end
+
+always @(posedge clk) begin
+    case(state)
+    S0: count <= 5'b0;
+    S1: count <= (count!=20) ? 0 : count+1;
+    S2: count <= (count!=6) ? 0 : count+1;
+    default: count <= count;
+    endcase
+end
+
+always @(posedge clk) begin
+    case(state)
+        S0, S1 : LED_s <= 0;
+        S2 : LED_s <= 2**(($urandom)%10);
+    endcase
+end
+
+always @(posedge clk) begin
+    case(state)
+    S0: LED <= 10'd0;
+    S1: LED <= (LED==10'd0) ? 10'd512 : (LED >> 1);
+    S2: LED <= (count%2) ? LED_s : 10'd0;
+    default: LED <= LED;
+    endcase
+end
+
+endmodule
