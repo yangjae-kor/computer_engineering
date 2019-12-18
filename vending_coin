@@ -1,0 +1,76 @@
+module vending_coin(
+    input wire clk,
+    input wire nrst,
+    output reg [3:0] insert_3,
+    output reg [3:0] insert_4,
+    output reg [1:0] coin,
+    output reg [3:0] reset_count);
+    
+    reg coin_state;
+    reg reset_button;
+    
+    parameter coin_s0 = 1'b0, coin_s1 = 1'b1;
+    
+   
+always @(posedge clk or negedge nrst) begin
+    if(!nrst) coin_state <= coin_s0;
+    else begin
+    case(coin_state)
+        coin_s0 : coin_state <= (coin != 2'b00)? coin_s1 : coin_s0;
+        coin_s1 : coin_state <= (insert_3 == 4'b0000 && insert_4 == 4'b0000)? coin_s0 : coin_s1;
+    endcase
+    end
+end   
+
+always @(posedge clk) begin
+    //매초(매 클럭)마다 카운트 증가, 10초동안 동작 없을 시 반환하는 변수
+    case(coin_state) 
+        coin_s0 : reset_count <= reset_count + 1'b1;
+        coin_s1 : case(coin)
+            2'b01, 2'b10, 2'b11: reset_count <= 4'd0;
+            endcase 
+    endcase
+end
+
+always @(posedge clk) begin
+    case(coin_state)
+     coin_s1 : coin <= 2'b00;
+    endcase
+end
+
+always @(posedge clk) begin
+    case(coin_state)
+     coin_s1 : case(coin)
+      2'b01 : insert_3 <= insert_3 + 4'b0001;
+      2'b10 : insert_3 <= insert_3 + 4'b0101;
+     default : insert_3 <= insert_3;
+  endcase
+endcase
+end
+
+always @(posedge clk) begin
+    case(coin_state)
+     coin_s1 : case(coin)
+      2'b11 : insert_4 <= insert_4 + 4'b0001;
+     default : insert_4 <= insert_4;
+  endcase
+endcase
+end
+
+always @(posedge clk) begin
+    case(coin_state)
+    coin_s1: if(insert_3 > 4'b1001) begin
+                insert_3 = insert_3 + 4'b0110;
+             end
+    endcase
+end
+
+always @(posedge clk) begin
+    case(coin_state)
+    coin_s1: if(insert_3 > 4'b1001) begin
+                insert_4 = insert_4 + 4'b0001;
+             end
+    endcase
+end
+
+endmodule
