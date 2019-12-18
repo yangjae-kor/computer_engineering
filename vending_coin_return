@@ -1,0 +1,59 @@
+module vending_coin_return(
+    input wire clk,
+    input wire nrst,
+    input wire reset_button,
+    output reg [3:0] return_count,
+    output reg [3:0] insert_3,
+    output reg [3:0] insert_4);
+   
+parameter S0=2'd0, S1=2'd1, S2=2'd2, S3=2'd3;
+
+reg return_led;
+reg [7:0] return;
+reg [1:0] state;
+ 
+always @(posedge clk or negedge nrst) begin
+    if(!nrst) state <= S0;
+    case (state)
+        S0: state <= (return_count==10 || reset_button==1) ? S1 : ((insert_4 > 4'b1001) ? S2 : S0);
+        S1: state <= (insert_3==0 && insert_4==0) ? S3 : S1;
+        S2: state <= (return==0) ? S0 : S2;
+        S3: state <= (return_count == 6) ? S0: S3;
+    endcase
+end
+
+always @(posedge clk) begin
+    case(state)
+        S0: return_count <= (return_count == 10) ? return_count : return_count + 4'd1;
+        S1: return_count <= 4'd0;
+        S3: return_count <= (return_count == 6) ? return_count : (return_count + 4'd1);
+    endcase
+end
+    
+always @(posedge clk) begin
+    case(state)
+        S0: return <= (insert_4>4'b1001) ? insert_4 - 4'b1001 : return;
+        S2: return <= return - 8'd1;
+    endcase
+end       
+
+always @(posedge clk) begin
+    case(state)
+        S1: insert_4 <= (insert_4 > 4'b0000) ? (insert_4 - 4'b0001) : insert_4;
+        S2: insert_4 <= insert_4 - 4'b0001;
+    endcase
+end    
+
+always @(posedge clk) begin
+    case(state)
+        S1: insert_3 <= (insert_3 > 4'b0100) ? (insert_3 - 4'b0101) : (insert_3 - 4'b0001);
+    endcase
+end
+
+always @(posedge clk) begin
+    case(state)
+        S3: return_led <= (return_count % 2) ? 1'b0 : 1'b1;
+    endcase
+end 
+
+endmodule
