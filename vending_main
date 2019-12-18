@@ -1,0 +1,69 @@
+module vending_main(
+    input wire clk,
+    input wire nrst,
+    input wire power,
+    output reg [2:0] cannot,
+    output reg cooler);
+    
+    reg main_state;
+
+    reg reset_button;
+
+    wire [3:0] insert_3;
+    wire [3:0] insert_4;
+        
+    wire [2:0] prod;
+    wire [3:0] select;
+    
+    wire [1:0] coin;
+    wire [3:0] reset_count;
+    
+    wire [6:0] prod_choco_amount;
+    wire [6:0] prod_straw_amount;
+    wire [6:0] prod_vanil_amount;
+    
+    reg [9:0] LED;
+
+
+vending_coin inst1 (.clk(clk), .nrst(nrst), .coin(coin), .insert_3(insert_3), .insert_4(insert_4));
+
+vending_coin_return inst2(.clk(clk), .nrst(nrst), .reset_button(reset_button), .return_count(reset_count),
+.insert_3(insert_3), .insert_4(insert_4));
+
+vending_select inst3(.clk(clk), .nrst(nrst), .cannot(cannot), .insert_3(insert_3), .insert_4(insert_4), .reset_count(reset_count), 
+.reset_button(reset_button), .select(select), .prod(prod));
+
+    
+parameter main_s0 = 1'b0, main_s1 = 1'b1;
+
+always @(posedge clk or negedge nrst) begin
+    if(!nrst) main_state <= main_s0;
+    else begin
+    case(main_state)
+        main_s0 : main_state <= power? main_s1 : main_s0;
+        main_s1 : main_state <= !power? main_s0 : main_s1;
+    endcase
+    end
+end
+
+always @(main_state == main_s1) begin
+    // amount에 따라 cannot(재고없음)값을 바꾸어 선택불가 led 및 선택 할 수 없게.
+    if(prod_choco_amount < 7'b0000101) cannot <= 3'b100;
+    else if(prod_straw_amount < 7'b0000101) cannot <= 3'b010;
+    else if(prod_vanil_amount < 7'b0000101) cannot <= 3'b001;
+    else if(prod_choco_amount < 7'b0000101 && prod_straw_amount < 7'b0000101) cannot <= 3'b110;
+    else if(prod_choco_amount < 7'b0000101 && prod_vanil_amount < 7'b0000101) cannot <= 3'b101;
+    else if(prod_straw_amount < 7'b0000101 && prod_vanil_amount < 7'b0000101) cannot <= 3'b011;
+    else if(prod_choco_amount < 7'b0000101 && prod_straw_amount < 7'b0000101 && prod_vanil_amount < 7'b0000101)
+    cannot <= 3'b111;
+    else cannot <= 3'b000;
+end
+
+always @(posedge clk) begin
+    case(power)
+        1'b1 : cooler <= 1'b1;
+        1'b0 : cooler <= 1'b0;
+    endcase
+end
+    
+endmodule
