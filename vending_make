@@ -1,0 +1,87 @@
+module vending_make(
+    input wire [2:0] prod,
+    input wire clk,
+    input wire nrst);
+    
+    reg waffle_machine;
+    reg choco_machine;
+    reg straw_machine;
+    reg vanil_machine;
+    reg conveyor;
+    
+    reg [2:0] make_state;
+    reg [1:0] machine_counter;
+    reg game_enable;
+    wire [9:0] LED;
+    
+    parameter make_s0 = 3'd0, make_s1 = 3'd1, make_s2 = 3'd2, make_s3 = 3'd3, make_s4 = 3'd4;
+    //s0 : 초기, s1 : 와플작동, s2 : 초코머신작동, s3 : 딸기머신작동, s4: 바닐라머신작동
+    
+vending_game inst5(.clk(clk), .nrst(nrst), .game_enable(game_enable), .LED(LED));
+    
+always @(posedge clk) begin
+//기계 작동 조절
+    if(!nrst) make_state <= make_s0;
+    case(make_state)
+        make_s0 : make_state <= (prod != 3'b000)? make_s1 : make_s0;
+        make_s1 : make_state <= (machine_counter == 2'b11)? make_s2 : make_s1;
+        make_s2 : make_state <= (machine_counter == 2'b11)? make_s3 : make_s2;
+        make_s3 : make_state <= (machine_counter == 2'b11)? make_s4 : make_s3;
+        make_s4 : make_state <= (machine_counter == 2'b11)? make_s0 : make_s4;
+    endcase
+end
+
+always @(posedge clk) begin
+//상태에 따라 머신 카운터 증가
+    case(make_state)
+        make_s1 : machine_counter <= (machine_counter == 2'b11)? 2'b00 : machine_counter + 2'b01;
+        make_s2 : machine_counter <= (machine_counter == 2'b11)? 2'b00 : machine_counter + 2'b01;
+        make_s3 : machine_counter <= (machine_counter == 2'b11)? 2'b00 : machine_counter + 2'b01;
+        make_s4 : machine_counter <= (machine_counter == 2'b11)? 2'b00 : machine_counter + 2'b01;
+    endcase
+end
+
+always @(posedge clk) begin
+//상태에 따라 컨베이어벨트 동작
+    case(make_state)
+        make_s0 : conveyor <= 1'b0;
+        make_s1 : conveyor <= (machine_counter == 2'b11)? conveyor + 1'b1 : 1'b0;
+        make_s2 : conveyor <= (machine_counter == 2'b11)? conveyor + 1'b1 : 1'b0;
+        make_s3 : conveyor <= (machine_counter == 2'b11)? conveyor + 1'b1 : 1'b0;
+        make_s4 : conveyor <= (machine_counter == 2'b11)? conveyor + 1'b1 : 1'b0;
+    endcase
+end
+
+always @(posedge clk) begin
+//상태에 따라 와플 머신 작동
+    case(make_state)
+        make_s0 : waffle_machine <= (prod != 3'b000)? 1'b1 : 1'b0;
+        make_s1 : waffle_machine <= 1'b0;
+    endcase
+end
+
+always @(posedge clk) begin
+//상태에 따라 초코 머신 작동
+    case(make_state)
+        make_s1 : choco_machine <= (machine_counter == 2'b11 && prod[3] == 1'b1)? 1'b1 : 1'b0;
+        make_s2 : choco_machine <= 1'b0;
+    endcase
+end
+
+always @(posedge clk) begin
+//상태에 따라 딸기 머신 작동
+    case(make_state)
+        make_s2 : straw_machine <= (machine_counter == 2'b11 && prod[2] == 1'b1)? 1'b1 : 1'b0;
+        make_s3 : straw_machine <= 1'b0;
+    endcase
+end
+
+always @(posedge clk) begin
+//상태에 따라 바닐라 머신 작동
+    case(make_state)
+        make_s3 : vanil_machine <= (machine_counter == 2'b11 && prod[1] == 1'b1)? 1'b1 : 1'b0;
+        make_s4 : vanil_machine <= 1'b0;
+    endcase
+end
+
+endmodule
