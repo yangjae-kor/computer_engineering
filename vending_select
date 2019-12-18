@@ -1,0 +1,126 @@
+module vending_select(
+    input wire clk,
+    input wire nrst,
+    input wire [2:0]cannot,
+    input wire reset_button,
+    output reg [3:0] insert_3,
+    output reg [3:0] insert_4,
+    output reg [3:0] reset_count,
+    output reg [3:0] select,
+    output reg [2:0] prod);
+    
+    reg [1:0] select_state;
+    reg [1:0] select_count;
+    
+    reg [2:0] prod_choco_led;
+    reg [2:0] prod_straw_led;
+    reg [2:0] prod_vanil_led;
+    reg [2:0] end_led;
+    
+    parameter select_s0 = 2'b00, select_s1 = 2'b01, select_s2 = 2'b10, select_s3 = 2'b11;
+    
+vending_make inst4(.prod(prod), .clk(clk), .nrst(nrst));
+    
+always @(posedge clk) begin
+//상태 조절
+    case(select_state)
+        select_s0 : select_state <= (insert_4 > 4'b000)? select_s1 : select_s0;
+        select_s1 : select_state <= (select > 4'b0000)? select_s2 : select_s1;
+        select_s2 : select_state <= (select == 4'b1000 || (insert_4 == 4'b0000 && insert_3 < 4'b0101))? select_s3 : select_s2;
+        select_s3 : select_state <= (prod == 4'b0000)? select_s0 : select_s3;
+    endcase
+        
+    //cannot 값에 따라 선택불가 led 점등
+    case(cannot)
+        3'b1xx : prod_choco_led <= 3'b001;
+        3'bx1x : prod_straw_led <= 3'b001;
+        3'bxx1 : prod_vanil_led <= 3'b001;
+    endcase
+end
+
+always @(posedge clk) begin
+    case(select_state)
+        select_s1 : if(reset_button == 1'b1) begin
+            select_state <= select_s0;
+            prod <= 3'b000;
+            select <= 4'b0000;
+        end
+        select_s2 : if(reset_button == 1'b1) begin
+            select_state <= select_s0;
+            prod <= 3'b000;
+            select <= 4'b0000;
+        end
+    endcase
+end
+
+always @(posedge clk) begin
+    //매초(매 클럭)마다 카운트 증가, 10초동안 동작 없을 시 반환하는 변수
+    if(select_state != select_s0) reset_count <= reset_count + 1'b1;
+end
+
+always @(posedge clk) begin
+//led
+    case(select_state)
+        select_s0 : begin
+        prod_choco_led <= (insert_4 > 4'b000)? 3'b100 : 3'b000;
+        prod_straw_led <= (insert_4 > 4'b000)? 3'b100 : 3'b000;
+        prod_vanil_led <= (insert_4 > 4'b000)? 3'b100 : 3'b000;
+        end_led <= (insert_4 > 4'b000)? 3'b100 : 3'b000;
+        end
+        select_s1 : if(select > 4'b0000) begin
+            case(select)
+                4'b1000 : end_led <= 3'b010;
+                4'b0100 : prod_choco_led <= 3'b010;
+                4'b0010 : prod_straw_led <= 3'b010;
+                4'b0001 : prod_vanil_led <= 3'b010;
+            endcase
+            insert_4 <= insert_4 - 1'b1;
+            select_count <= 2'b01;
+            prod <= select[2:0];
+            reset_count <= 1'd0;
+            end
+        select_s2 : begin
+        if(prod != select[2:0] && select != 4'b1000) begin
+            select_count <= select_count + 1'b1;
+            reset_count <= 1'd0;
+            case(select_count)
+                2'b10 : begin
+                    case(select)
+                    4'b0100 : prod <= prod + 3'b100;
+                    4'b0010 : prod <= prod + 3'b010;
+                    4'b0001 : prod <= prod + 3'b001;
+                    endcase
+                    if(insert_4 > 4'b0000 && insert_3 < 4'b0101) begin
+                        insert_4 = insert_4 - 1'b1;
+                        insert_3 = insert_3 + 4'b0101;
+                    end
+                    else insert_3 = insert_3 - 4'b0101;
+                end
+                2'b11 : begin
+                    prod <= 3'b111;
+                    if(insert_4 > 4'b0000 && insert_3 < 4'b0101) begin
+                        insert_4 = insert_4 - 1'b1;
+                        insert_3 = insert_3 + 4'b0101;
+                    end
+                    else insert_3 = insert_3 - 4'b0101;
+                    select <= 4'b1000;
+                end
+                endcase
+            end
+            else if(select == 4'b1000 || (insert_4 == 4'b0000 && insert_3 < 4'b0101)) begin
+                if(prod_choco_led != 3'b010) prod_choco_led <= 3'b000;
+                if(prod_straw_led != 3'b010) prod_straw_led <= 3'b000;
+                if(prod_vanil_led != 3'b010) prod_vanil_led <= 3'b000;
+                reset_count <= 1'd0;
+            end
+        end
+        select_s3 : if(prod == 3'b000) begin
+            prod_choco_led <= 3'b000;
+            prod_straw_led <= 3'b000;
+            prod_vanil_led <= 3'b000;
+            end_led <= 3'b000;
+        end
+    endcase
+end
+
+endmodule
